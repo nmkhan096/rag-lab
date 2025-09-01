@@ -1,0 +1,18 @@
+# environments
+.env
+
+# artifacts
+artifacts/
+runs_db/
+mlruns/
+
+# Python
+__pycache__/
+*.pyc
+
+# notebooks
+notebooks/
+.ipynb_checkpoints/
+
+# data
+Resume_new.docx

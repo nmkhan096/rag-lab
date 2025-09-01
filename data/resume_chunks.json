@@ -1,0 +1,170 @@
+[
+  {
+    "id": "7e7d800e-a4e2-4709-aaa3-c580b79aa38e",
+    "text": "Name: Nida Madina Khan, Email: nmkhan096@gmail.com",
+    "metadata": {
+      "section": "Intro"
+    }
+  },
+  {
+    "id": "e5b1fcc3-976c-4271-90db-6b6a9de15e88",
+    "text": "Links: linkedIn.com/in/nmkhan096, github.com/nmkhan096",
+    "metadata": {
+      "section": "Intro"
+    }
+  },
+  {
+    "id": "34d58183-91c9-4823-90dc-44f394319d8e",
+    "text": "Securiti, Karachi, Pakistan\t11/2024 – 05/2025\nData Scientist",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "aee31673-65a4-4fef-9919-726a89eabee6",
+    "text": "Fine-tuned LLaMA 3 using PEFT (LoRA) and Unsloth for multi-label classification of 15+ personal data (PD) column types in structured tables, achieving a macro-F1 of 92% across PD types.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "177744d1-fd42-422c-84a3-e52f672bc2ab",
+    "text": "Enhanced model robustness through prompt engineering techniques, data augmentation, analysis tools (t-SNE), and leveraging AI code assistants like Claude Code to streamline dataset preparation.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "58d43aa2-967d-436a-8c67-2ad2d1123885",
+    "text": "Built a CNN-based model to detect header rows in CSV files using sentence-transformer embeddings and cosine similarity patterns, improving accuracy by 6% over the previous ML system.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "3fa17f73-e500-4c3b-94b5-f6ce6b037f66",
+    "text": "Integrated PyTorch models into a Java-based production pipeline for latency and performance testing, collaborating closely with engineering teams to ensure seamless deployment.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "82cc1a77-b09f-4868-8875-984ab3a123f9",
+    "text": "Afiniti Software Solutions Ltd., Remote\t02/2020 – 10/2024\nData Scientist II, Artificial Intelligence Team\t05/2022 – 10/2024\nData Scientist, Artificial Intelligence Team\t05/2021 – 05/2022\nJunior Data Scientist, Artificial Intelligence Team\t02/2020 – 05/2021",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "6f51206c-15b4-43e4-b4ef-a65def169cbe",
+    "text": "Optimized call routing using machine learning models like Decision Trees to improve customer retention and lifetime value, generating over $1 million in revenue per month, validated through live A/B testing.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "c0fc37b5-a51e-4bad-8bce-53c02d91a334",
+    "text": "Streamlined the ML pipeline in R using a Bash-based orchestration script, optimizing grid search time from several days to <24 hours, and implementing standardized model logging for reproducibility and performance tracking.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "2ede1562-5548-4a71-8c25-770e18dcb137",
+    "text": "Conducted extensive grid search experiments comprising of 1000+ models to find optimal hyper parameters.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "9b8939a5-f874-447b-8e9f-e80b9170d075",
+    "text": "Designed interactive dashboards using R and Python, resulting in streamlined tracking and visualization of KPIs.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "4161979b-ea97-43ba-990f-27c055aa490b",
+    "text": "Conducted real-time production monitoring using MySQL, leading to improved data quality for decision-making.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "8e58c53a-184e-4472-b9c4-fcf45b6d8cc7",
+    "text": "Used gradient-boosted decision trees (e.g., LightGBM) for predictive revenue forecasting and customer churn models.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "c09e4810-8677-4a59-88e5-c50c6cb5288e",
+    "text": "Trained 10+ members across three clients on the ML pipeline, R programming and client business, contributing to an increase in project efficiency.",
+    "metadata": {
+      "section": "Work Experience"
+    }
+  },
+  {
+    "id": "3b5ac1ce-e26a-4987-96c4-74e3d8efcadd",
+    "text": "Ask My Resume: an AI-powered resume Q&A web app using RAG and vector search allowing users to query resumes and receive grounded, contextual answers. Achieved 81% retrieval accuracy and 74% accuracy rated by GPT-4o-mini.",
+    "metadata": {
+      "section": "Projects"
+    }
+  },
+  {
+    "id": "2b260131-6ce0-4e6a-8611-78a36e8b753b",
+    "text": "End-to-end PySpark data pipeline: a spark workflow to process large-scale taxi trip data (~40M records). Used Spark local mode for prototyping and deployed the final pipeline on a single-node Dataproc cluster on GCP. Ingested Parquet-formatted data from GCS, standardized schemas, and wrote aggregated metrics to BigQuery for reporting and analysis.",
+    "metadata": {
+      "section": "Projects"
+    }
+  },
+  {
+    "id": "9a76b6a4-1b88-4323-9858-066ce685f478",
+    "text": "Programming: Python, R, SQL, Java, Bash",
+    "metadata": {
+      "section": "Skills"
+    }
+  },
+  {
+    "id": "0f60da61-0a5c-4bf3-b110-5a38703ed082",
+    "text": "Data Science & ML: Pandas, Scikit-learn, PyTorch, dplyr, data.table, Data Visualization (ggplot2, Tableau, Looker Studio), Model Evaluation (Cross-Validation, A/B Testing, F1 score)",
+    "metadata": {
+      "section": "Skills"
+    }
+  },
+  {
+    "id": "d6e3c82b-a982-4092-982e-2dd84db57928",
+    "text": "Probability & Statistics: Hypothesis Testing, Bayesian Inference, Time Series Analysis",
+    "metadata": {
+      "section": "Skills"
+    }
+  },
+  {
+    "id": "ddfb9738-1673-403c-88f4-49b83fc979fc",
+    "text": "Data Engineering & MLOps: Spark, Docker, MLflow, Git, Cloud Platforms (GCP), Grafana, Jupyter",
+    "metadata": {
+      "section": "Skills"
+    }
+  },
+  {
+    "id": "ac2a261f-35b3-4e72-aac5-158112bbcd16",
+    "text": "Languages: English (C2), Urdu (mother tongue)",
+    "metadata": {
+      "section": "Skills"
+    }
+  },
+  {
+    "id": "cd2f1de6-0291-47b0-bb84-124f46e7f6b8",
+    "text": "Education\nNational University of Sciences and Technology, Islamabad, Pakistan\t2015 – 2019\nB.E. Electrical Engineering",
+    "metadata": {
+      "section": "Education"
+    }
+  },
+  {
+    "id": "cfd2e517-67e1-4270-8bda-bcd39ca693e3",
+    "text": "Courses: Machine Learning, Probability & Statistics, Data Structures & Algorithms, Object-Oriented Programming",
+    "metadata": {
+      "section": "Education"
+    }
+  }
+]
