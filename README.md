@@ -1,4 +1,4 @@
-RagEval is a lightweight, RAG-agnostic evaluation toolkit that:
+Rag Lab is a lightweight, RAG-agnostic evaluation toolkit that:
 - **Generates** synthetic, grounded question/answer datasets from your corpus,
 - **Validates** them with a separate LLM (no circularity),
 - **Evaluates** ANY RAG system with **deterministic metrics** (Hit@k, MRR, semantic similarity) and **LLM judges** (faithfulness, stability),

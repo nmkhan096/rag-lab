@@ -2,9 +2,12 @@
 .env
 
 # artifacts
-artifacts/
-runs_db/
-mlruns/
+# artifacts/
+# runs_db/
+mlruns/*
+runs/*
+# !.gitignore
+# !.gitkeep
 
 # Python
 __pycache__/
@@ -16,3 +19,8 @@ notebooks/
 
 # data
 Resume_new.docx
+
+# raglab
+raglab/orchestrators/demo_eval.py
+demo_ray_runner.py
+data_eval/*

@@ -1,0 +1,13 @@
+# Ignore everything inside runs/mlruns and runs/duckdb
+# raglab/runs/mlruns/*
+# raglab/runs/duckdb/*
+
+# But keep the .gitignore (and optionally .gitkeep) files
+# !raglab/runs/mlruns/.gitignore
+# !raglab/runs/mlruns/.gitkeep
+# !raglab/runs/duckdb/.gitignore
+# !raglab/runs/duckdb/.gitkeep
+
+raglab/orchestrators/demo_eval.py
+demo_ray_runner.py
+data_eval/*
