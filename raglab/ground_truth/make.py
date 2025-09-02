@@ -157,7 +157,7 @@ if __name__ == "__main__":
     #parser.add_argument("--accept-faithfulness", type=float, default=0.85, help="Min faithfulness to accept.")
     parser.add_argument("--repair", action="store_true", help="Attempt one repair if validation fails.")
     #parser.add_argument("--dedup-threshold", type=float, default=0.90, help="Cosine threshold for question dedup.")
-    parser.add_argument("--out-dir", default="langops/data_eval", help="Output directory.")
+    parser.add_argument("--out-dir", default="raglab/data_eval", help="Output directory.")
     # parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 

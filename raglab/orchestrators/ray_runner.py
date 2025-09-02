@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 import ray, duckdb, mlflow
 
-from langops.adapters.rag_adapter import RAGAdapter
-from langops.metrics import retrieval, generation
-from langops.agents import judges
+from raglab.adapters.rag_adapter import RAGAdapter
+from raglab.metrics import retrieval, generation
+from raglab.agents import judges
 
 
 @ray.remote
@@ -135,20 +135,20 @@ def summarize_for_mlflow(examples_df: pd.DataFrame):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="langops/data_eval/gt_v1_repaired.jsonl")
+    parser.add_argument("--data", default="raglab/data_eval/gt_v1_repaired.jsonl")
     parser.add_argument("--llm_model", default="llama-3.3-70b-versatile")
     parser.add_argument("--k", type=int, default=5, help="top-k to retrieve")
     parser.add_argument("--cpus", type=int, default=1, choices=[1, 2, 3, 4])
     parser.add_argument("--workers", type=int, default=None)
-    parser.add_argument("--duckdb_dir", default="langops/runs_db")
+    parser.add_argument("--duckdb_dir", default="raglab/runs/duckdb")
     parser.add_argument("--experiment", default="rag_eval")
     args = parser.parse_args()
 
     num_workers = args.workers or args.cpus
     ray.init(num_cpus=args.cpus, ignore_reinit_error=True)
 
-    # launch mlflow ui with: mlflow ui --backend-store-uri langops/mlruns
-    mlflow.set_tracking_uri("file:langops/mlruns")
+    # launch mlflow ui with: mlflow ui --backend-store-uri raglab/runs/mlruns
+    mlflow.set_tracking_uri("file:raglab/runs/mlruns")
     mlflow.set_experiment(args.experiment)
 
     with mlflow.start_run(run_name=f"{args.llm_model}-k{args.k}-w{num_workers}") as run:
