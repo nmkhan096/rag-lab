@@ -23,4 +23,4 @@ Resume_new.docx
 # raglab
 raglab/orchestrators/demo_eval.py
 demo_ray_runner.py
-data_eval/*
+#data_eval/*

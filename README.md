@@ -7,6 +7,31 @@ Rag Lab is a lightweight, RAG-agnostic evaluation toolkit that:
 
 > This repo includes a working example against the RAG app implemented [here](https://github.com/nmkhan096/ask-my-resume-rag), but the evaluator is RAG-agnostic via a tiny **adapter**.
 
+## 📁 Project Architecture
+```
+├── rag_pipeline/              # Your RAG system
+├── raglab/                    # Evaluator package
+│   ├── adapters/
+│   │   └── rag_adapter.py     # wraps your rag.rag_answer(...)
+│   ├── ground_truth/
+│   │   └── make.py            # creates GT JSONL
+│   ├── metrics/
+│   │   ├── retrieval.py       # Hit@k, Recall@k, MRR, nDCG
+│   │   └── generation.py      # BLEU/ROUGE/semantic-sim
+│   ├── agents/
+│   │   ├── faithfulness.py    # Context-grounding judge
+│   │   ├── style.py
+│   │   └── safety.py
+│   ├── orchestrators/
+│   │   └── ray_runner.py      # parallel map over dataset
+│   ├── runs/
+│   │   ├── duckdb/            # per-example results
+│   │   └── mlruns/            # run-level metrics
+│   └── data_eval/
+│       └──  gt_eval.jsonl     # your GT dataset (Q, gold_docs, gold_answer)
+├── requirements.txt
+└── README.md
+```
 
 ## ✨ Features
 
