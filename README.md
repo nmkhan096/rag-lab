@@ -2,7 +2,7 @@
 
 Rag Lab is a lightweight, RAG-agnostic evaluation toolkit that:
 
-1. **Generates synthetic Ground Truth datasets** with natural, grounded question/answer pairs from your corpus and **validates** them with a separate LLM to avoid bias and circularity.
+1. **Generates *synthetic Ground Truth* datasets** with natural, grounded question/answer pairs from your corpus and **validates** them with a separate LLM to avoid bias and circularity.
 2. **Evaluates *any* RAG system** using a combination of **deterministic metrics** (Hit@k, MRR, semantic similarity) and **agentic judges** (faithfulness, stability). The evaluation pipeline also **scales** with Ray for parallelism, and **logs** results with  MLflow and DuckDB.
 
 > This repo includes a working example against the RAG app implemented [here](https://github.com/nmkhan096/ask-my-resume-rag), but the evaluator is RAG-agnostic via a tiny **adapter**.
@@ -12,7 +12,7 @@ Rag Lab is a lightweight, RAG-agnostic evaluation toolkit that:
 
 ### RAG Adapter Class
 
-To make the evaluator RAG-agnostic, we need to create a wrapper around the RAG functions so the evaluator has a stable interface. With the RAG Adapter class, anyone can plug in their RAG.
+To make the evaluator RAG-agnostic, we need to create a wrapper around the RAG functions so the evaluator has a stable interface with the RAG system. With the RAG Adapter class, anyone can plug in their RAG.
 
 We need three functions to cover all evaluation needs:
 
@@ -41,7 +41,9 @@ The evaluation pipeline is implemented as two layers:
 
 2. **Agentic Judges** -> **No GT available**
 
-    With no GT available and no gold answer to compare to, we can still evaluate the response against the *retrieved context* and the *instruction*, using **LLM-based judges** to assess: Faithfulness, Factuality, Safety, Self-Consistency, etc.
+    With no GT available and no gold answer to compare to, we can still evaluate the response against the *retrieved context* and the *instruction*, using **LLM-based judges** to assess: Faithfulness, Factuality, Safety, Self-Consistency, etc. This type of evaluation (no GT) works both in testing and in production monitoring.
+
+  The pipeline is also **modular**. Both Layer 1 (metrics) and Layer 2 (judges) are pluggable, so adding new metrics (e.g., MAP, exact match) or new judges (Factuality, Safety) is straightforward. Just drop the function in `metrics/`
 
 ### Parallelize / Scale with Ray
 
@@ -63,7 +65,7 @@ The RAG example used here follows the same steps outlined [here](https://github.
 ### 1) Install
 
 ```
-git clone https://github.com/nmkhan096/rag-eval.git
+git clone https://github.com/nmkhan096/rag-lab.git
 ```
 ### 2) Install dependencies
 
@@ -102,26 +104,52 @@ Storage:
 - **DuckDB (per-example)**: `examples` (metrics/answer/judge/latency) and `contexts` (ranked retrieved chunks).
 - **MLflow (run-level)**: `params` (llm_model, k, cpus, workers, dataset), `metrics` (avg hit rate, MRR, faithfulness, latency), and the run’s DuckDB file as an `artifact`.
 
-View results:
+### 6) View Results
 
-- **MLflow UI**: mlflow ui --backend-store-uri raglab/runs/mlruns → browse metrics & params
-- **DuckDB**: open DuckDB with DBeaver/CLI/duckdb shell or query directly from Python:
+**MLFlow** is used for tracking **run-level** metrics & artifacts. 
 
-    a. CLI:
-    ```
-    duckdb runs_db/002b6cde0aa344b1b1b47a77601d25e1.duckdb
+MLflow outputs are stored under `runs/mlruns`:
+
+```
+mlruns/
+  └── <EXPERIMENT_RUN_TIMESTAMP>/
+      └── <RUN_ID>/
+          ├── artifacts/    # duckdb file
+          ├── metrics/      # hit, mrr, latency
+          ├── params/       # k, llm_model (run-level params)
+          ├── tags/
+          └── meta.yaml
+```
+
+To access MLFlow results:
+
+```
+mlflow ui --backend-store-uri raglab/runs/mlruns
+```
+
+**DuckDB** is used for **per-example** results and is stored in `runs/duckdb/`. This contains two tables:
+- `examples`: one row per example, including hits, MRR, latencies, faithfulness, etc.
+- `contexts`: one row per retrieved chunk (ranked) for each row in `examples` table.
+
+To query, open DuckDB with DBeaver/CLI/duckdb shell or query directly from Python:
+
+  a. CLI:
+
+  ```
+  duckdb duckdb/002b6cde0aa344b1b1b47a77601d25e1.duckdb
     -- inside DuckDB shell:
     SELECT * FROM examples LIMIT 10;
     SELECT * FROM contexts WHERE example_id = 'some_id';
-    ```
+  ```
 
-    b. Python (Notebook or script):
-    ```
-    import duckdb
-    con = duckdb.connect("runs_db/002b6cde0aa344b1b1b47a77601d25e1.duckdb")
+  b. Python (Notebook or script):
 
-    df = con.execute("SELECT * FROM examples").df()
-    print(df.head())
+  ```
+  import duckdb
+  con = duckdb.connect("runs_db/002b6cde0aa344b1b1b47a77601d25e1.duckdb")
 
-    ctx_df = con.execute("SELECT * FROM contexts WHERE example_id = 'example_3'").df()
-    ```
+  df = con.execute("SELECT * FROM examples").df()
+  print(df.head())
+
+  ctx_df = con.execute("SELECT * FROM contexts WHERE example_id = 'example_3'").df()
+  ```

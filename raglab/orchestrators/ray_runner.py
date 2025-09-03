@@ -21,12 +21,12 @@ class Evaluator:
         result = self.adapter.rag(q, k=self.k)
         ans, ctxs = result["answer"], result["contexts"]
 
-        # Layer A: deterministic metrics (require ground truth)
+        # Layer 1: deterministic metrics (require ground truth)
         a_metrics = {}
         a_metrics.update(retrieval.compute_all(ctxs, example["doc_id"]))
-        a_metrics.update(generation.compute_all(ans, example["gold_answer"]))
+        a_metrics.update(generation.compute_all(ans, example["gold_answer"], example['text']))
 
-        # Layer B: agentic judges
+        # Layer 2: agentic judges
         b_metrics = {}
         b_metrics["faithfulness"] = judges.judge_faithfulness(q, ctxs, ans)
 
@@ -135,13 +135,13 @@ def summarize_for_mlflow(examples_df: pd.DataFrame):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="raglab/data_eval/gt_v1_repaired.jsonl")
+    parser.add_argument("--data", default="raglab/data_eval/gt_v1.jsonl")
     parser.add_argument("--llm_model", default="llama-3.3-70b-versatile")
     parser.add_argument("--k", type=int, default=5, help="top-k to retrieve")
     parser.add_argument("--cpus", type=int, default=1, choices=[1, 2, 3, 4])
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--duckdb_dir", default="raglab/runs/duckdb")
-    parser.add_argument("--experiment", default="rag_eval")
+    parser.add_argument("--experiment", default="k_all_gt")
     args = parser.parse_args()
 
     num_workers = args.workers or args.cpus
@@ -151,7 +151,7 @@ def main():
     mlflow.set_tracking_uri("file:raglab/runs/mlruns")
     mlflow.set_experiment(args.experiment)
 
-    with mlflow.start_run(run_name=f"{args.llm_model}-k{args.k}-w{num_workers}") as run:
+    with mlflow.start_run(run_name=f"{args.llm_model}-k{args.k}") as run: #-w{num_workers}
         run_id = run.info.run_id
 
         mlflow.log_params({

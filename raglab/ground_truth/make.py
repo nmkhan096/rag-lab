@@ -145,6 +145,7 @@ def repair_question(doc, question, critique):
     if not arr or not isinstance(arr, list): return None
     return arr[0].strip()
 
+# python -m raglab.ground_truth.make --version gt_v1 --n_per_chunk 3 --max_per_chunk 3
 
 if __name__ == "__main__":
     import argparse, random
@@ -152,12 +153,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate & validate synthetic GT from resume chunks.")
     parser.add_argument("--chunks", default="data/resume_chunks.json", help="Path to resume chunks JSON.")
     parser.add_argument("--version", default="gt_v1", help="Version tag to write into JSONL.")
-    parser.add_argument("--n-per-chunk", type=int, default=2, help="Questions to generate per chunk (before filtering).")
-    #parser.add_argument("--max-per-chunk", type=int, default=2, help="Max accepted questions per chunk.")
+    parser.add_argument("--n_per_chunk", type=int, default=2, help="Questions to generate per chunk (before filtering).")
+    parser.add_argument("--max_per_chunk", type=int, default=2, help="Max accepted questions per chunk.")
     #parser.add_argument("--accept-faithfulness", type=float, default=0.85, help="Min faithfulness to accept.")
     parser.add_argument("--repair", action="store_true", help="Attempt one repair if validation fails.")
     #parser.add_argument("--dedup-threshold", type=float, default=0.90, help="Cosine threshold for question dedup.")
-    parser.add_argument("--out-dir", default="raglab/data_eval", help="Output directory.")
+    parser.add_argument("--out_dir", default="raglab/data_eval", help="Output directory.")
     # parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -167,13 +168,18 @@ if __name__ == "__main__":
         chunks = json.load(f)
 
     ACCEPT_FAITHFULNESS = 0.85 #args.accept_faithfulness
-    MAX_PER_CHUNK = 2 #args.max_per_chunk
+    MAX_PER_CHUNK = args.max_per_chunk
     VERSION = args.version
+
+    # print(args.out_dir)
+    # os.makedirs(args.out_dir, exist_ok=True)
+    # out_jsonl = os.path.join(args.out_dir, f"{VERSION}.jsonl")
+    # print(out_jsonl)
 
     accepted, rejected = [], []
 
     # ---------- Main loop ----------
-    for doc in chunks[5:10]:
+    for doc in chunks[2:19]:
         q_candidates = generate_questions(doc, n=args.n_per_chunk)
         random.shuffle(q_candidates)
         kept = 0
@@ -199,6 +205,7 @@ if __name__ == "__main__":
                     "answerable": val["answerable"],
                     "overlap_ratio": val.get("overlap_ratio", 0.0),
                     "question": q,
+                    "text": doc["text"],
                     "gold_answer": val["gold_answer"]
                 })
                 continue
@@ -225,37 +232,71 @@ if __name__ == "__main__":
                             "answerable": val2["answerable"],
                             "overlap_ratio": val2.get("overlap_ratio", 0.0),
                             "question": new_q,
+                            "text": doc["text"],
                             "gold_answer": val2["gold_answer"]
                         })
                         continue # skip repair/reject
                     else:
                         # rejected repaired question
                         rejected.append({
-                            "doc_id": doc["id"],
+                            "id": f"q_{uuid.uuid4().hex[:10]}",
+                            "version": VERSION,
                             "section": doc["metadata"]["section"],
-                            "val": val2,
-                            "text": doc["text"],
+                            "doc_id": doc["id"],
+                            # "gold_doc_ids": [doc["id"]],
+                            # "gold_citations": [{"doc_id": doc["id"], "spans": val["citations"]}],
+                            "generator_model": A_MODEL,
+                            "validator_model": B_MODEL,
+                            "prompt_ids": {"gen":"qgen_v1","val":"qval_v1"},
+                            "faithfulness": val["faithfulness"],
+                            "answerable": val["answerable"],
+                            "overlap_ratio": val.get("overlap_ratio", 0.0),
                             "question": q,
-                            "repaired_question": new_q
+                            "text": doc["text"],
+                            "gold_answer": val["gold_answer"]
                         })
                         continue
+            # rejected.append({
+            #     "doc_id": doc["id"],
+            #     "section": doc["metadata"]["section"],
+            #     "val": val,
+            #     "text": doc["text"],
+            #     "question": q,
+            # })
             rejected.append({
-                "doc_id": doc["id"],
-                "section": doc["metadata"]["section"],
-                "val": val,
-                "text": doc["text"],
-                "question": q,
-            })
+                    "id": f"q_{uuid.uuid4().hex[:10]}",
+                    "version": VERSION,
+                    "section": doc["metadata"]["section"],
+                    "doc_id": doc["id"],
+                    # "gold_doc_ids": [doc["id"]],
+                    # "gold_citations": [{"doc_id": doc["id"], "spans": val["citations"]}],
+                    "generator_model": A_MODEL,
+                    "validator_model": B_MODEL,
+                    "prompt_ids": {"gen":"qgen_v1","val":"qval_v1"},
+                    "faithfulness": val["faithfulness"],
+                    "answerable": val["answerable"],
+                    "overlap_ratio": val.get("overlap_ratio", 0.0),
+                    "question": q,
+                    "text": doc["text"],
+                    "gold_answer": val["gold_answer"]
+                })
 
     # # Dedup (optional)
     # if args.dedup_threshold:
     #     accepted, dropped_idxs = dedup_by_similarity(accepted, text_key="question", threshold=args.dedup_threshold)
     #     print(f"[dedup] Dropped {len(dropped_idxs)} near-duplicates at ≥ {args.dedup_threshold}")
 
-    # Save
     os.makedirs(args.out_dir, exist_ok=True)
-    out_jsonl = os.path.join(args.out_dir, f"{VERSION}.jsonl")
-    with open(out_jsonl, "w", encoding="utf-8") as w:
+
+    all = accepted + rejected
+    all_jsonl = os.path.join(args.out_dir, f"{VERSION}.jsonl")
+    with open(all_jsonl, "w", encoding="utf-8") as w:
+        for ex in all:
+            w.write(json.dumps(ex, ensure_ascii=False) + "\n")
+    
+    # Save accepted (JSONL)
+    accepted_jsonl = os.path.join(args.out_dir, f"{VERSION}_accepted.jsonl")
+    with open(accepted_jsonl, "w", encoding="utf-8") as w:
         for ex in accepted:
             w.write(json.dumps(ex, ensure_ascii=False) + "\n")
     
@@ -265,11 +306,4 @@ if __name__ == "__main__":
         for ex in rejected:
             w.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-    #pd.DataFrame(rejected).to_csv(os.path.join(args.out_dir, "rejected_candidates.csv"), index=False)
-    print(f"With repair {args.repair} : Accepted: {len(accepted)} | Rejected: {len(rejected)} | saved: {out_jsonl}")
-
-# python langops/gt/gt_make.py --version gt_v1_repaired --repair
-
-# python rag_pipeline/parser.py "data/Resume_new.docx" --sections "Intro" "Work Experience" "Projects" "Education" "Skills" --output "data/resume_chunks.json"
-
-# source C:/projects/ask_my_resume/.venv/Scripts/activate
+    print(f"With repair={args.repair} : Accepted: {len(accepted)} | Rejected: {len(rejected)} | saved: {all_jsonl}")
