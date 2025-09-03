@@ -5,7 +5,9 @@ from rag_pipeline.rag import *
 
 class RAGAdapter:
     """
-    Thin wrapper around your rag functions so the evaluator has a stable interface.
+    Thin wrapper around your rag functions.
+    
+    This is a sample implementation for the example RAG system used.
     """
     def __init__(self, *, default_sections=("Intro","Work Experience","Projects","Skills","Education"),
                  default_k=5, llm_model=LLM_MODEL_DEFAULT, name="ask-my-resume"):
