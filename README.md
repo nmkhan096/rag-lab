@@ -15,10 +15,10 @@ Rag Lab is a lightweight, RAG-agnostic evaluation toolkit that:
 │   │   └── rag_adapter.py     # wraps your rag.rag_answer(...)
 │   ├── ground_truth/
 │   │   └── make.py            # creates GT JSONL
-│   ├── metrics/
+│   ├── metrics/               # Deterministic metric -> GT
 │   │   ├── retrieval.py       # Hit@k, Recall@k, MRR, nDCG
 │   │   └── generation.py      # BLEU/ROUGE/semantic-sim
-│   ├── agents/
+│   ├── agents/                # LLM judges -> no GT
 │   │   ├── faithfulness.py    # Context-grounding judge
 │   │   ├── style.py
 │   │   └── safety.py
@@ -45,7 +45,7 @@ We need three functions to cover all evaluation needs:
 - `generate(query, contexts, llm_model) -> answer`
 - `rag_answer(query, k, llm_model) -> (answer, contexts)`
 
-The separation also lets you run A/B tests on **retrieval** vs **generation** independently.
+This separation also lets you run A/B tests on **retrieval** vs **generation** independently.
 
 ### Synthetic GT pipeline
 
@@ -68,15 +68,34 @@ The evaluation pipeline is implemented as two layers:
 
     With no GT available and no gold answer to compare to, we can still evaluate the response against the *retrieved context* and the *instruction*, using **LLM-based judges** to assess: Faithfulness, Factuality, Safety, Self-Consistency, etc. This type of evaluation (no GT) works both in testing and in production monitoring.
 
-  The pipeline is also **modular**. Both Layer 1 (metrics) and Layer 2 (judges) are pluggable, so adding new metrics (e.g., MAP, exact match) or new judges (Factuality, Safety) is straightforward. Just drop the function in `metrics/`
+  The pipeline is also **modular**. Both Layer 1 (metrics) and Layer 2 (judges) are pluggable, so adding new metrics (e.g., MAP, exact match) or new judges (Factuality, Safety) is straightforward. Just drop the functions in `metrics/` or `agents/`
 
 ### Parallelize / Scale with Ray
 
 Ray is used to run the evaluation tasks in parallel: Each Q/A pair in GT is processed in its own **Ray task**, running RAG, computing ground-truth metrics and LLM-judge metrics and returning the results.
 
-Moreover, since we are passing an **adapter class** into every task, Ray would have to **pickle & send** the adapter object to each worker. Hence, I used **Ray Actors** so the adapter is constructed once per worker.
+Moreover, we use **Ray Actors** to parallelize evaluation across multiple CPU workers.
+
+From Ray Documentation:
+ 
+
+> Ray provides actors to allow you to parallelize an instance of a class in Python or Java. When you instantiate a class that is a Ray actor, Ray starts a remote instance of that class in the cluster. This actor can then execute remote method calls and maintain its own internal state.
+
+In our task, we create an **Evaluator** class actor that holds its own `RAGAdapter` object. This way, each worker process constructs its own adapter once, and reuses it for all tasks. We just pass lightweight arguments (`k`, `llm_model`) when creating the Actor. This avoids re-initialization overhead and improves throughput.
+
+Note that for heavy clients/models, it’s better to construct the adapter **inside the actor’s `__init__`**. If we had constructed the adapter outside and passed it into the actor, Ray would have to **pickle & send** the adapter object to each worker. If `RAGAdapter` has large state (embeddings, LLM clients, etc.), it would be slow or even impossible.
 
 > Note that Ray currently requires Python ≥ 3.8 and ≤ 3.12.
+
+### Rate Limiter
+
+LLM providers (e.g., Groq) enforce request caps (e.g., 30 RPM). This project adds a **global, token-bucket rate limiter** so all workers collectively stay under the provider’s RPM.
+
+Since we are parallelizing with Ray, we might be sending requests too fast. Additionally, with multiple Ray workers running independently, we’ll need a **shared limiter (class or Ray actor)**, otherwise each worker will think it has its own quota and you’ll still exceed the set RPM.
+
+Hence, we create one **RateLimiter actor** that tracks timestamps of recent calls and blocks new ones until capacity frees up. Each `Evaluator` worker **calls `limiter.acquire()`** right before the LLM request. This guarantees aggregate throughput ≤ configured RPM, even with many workers. This enforces a single global quota.
+
+With the `RAGAdapter` class, `Evaluator` Class and `RateLimiter` Class, we can now easily spin up 1–N Evaluator actors and distribute examples while respecting CPU limits and external API rate limits.
 
 ### Storage (DuckDB) & Tracking (MLflow)
 

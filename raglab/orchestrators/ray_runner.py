@@ -1,25 +1,55 @@
-# demo_eval_ray_1cpu.py
 import os, json, time, argparse
-from statistics import mean
 import numpy as np
 import pandas as pd
+from statistics import mean
+from collections import deque
 import ray, duckdb, mlflow
 
 from raglab.adapters.rag_adapter import RAGAdapter
 from raglab.metrics import retrieval, generation
 from raglab.agents import judges
 
+# ---------------- Rate Limiter (global across all workers) ----------------
+@ray.remote
+class RateLimiter:
+    """Token-bucket-style limiter: at most max_calls per per_seconds across ALL workers."""
+    def __init__(self, max_calls: int, per_seconds: float):
+        self.max_calls = max_calls
+        self.per = per_seconds
+        self.q = deque()  # timestamps (seconds)
 
+    def acquire(self):
+        now = time.time()
+        # drop old timestamps
+        while self.q and (now - self.q[0]) > self.per:
+            self.q.popleft()
+
+        if len(self.q) >= self.max_calls:
+            sleep_for = self.per - (now - self.q[0]) + 0.001
+            time.sleep(max(0.0, sleep_for))
+            now = time.time()
+            while self.q and (now - self.q[0]) > self.per:
+                self.q.popleft()
+
+        self.q.append(time.time())
+        return True
+    
+# ---------------- Evaluator (Ray Actor) ----------------
 @ray.remote
 class Evaluator:
-    def __init__(self, llm_model: str, k: int):
+    def __init__(self, llm_model: str, k: int, limiter):
         self.adapter = RAGAdapter(default_k=k, llm_model=llm_model)
         self.k = k
+        self.limiter = limiter
 
     def run_eval(self, example):
+        
         q = example["question"]
-        result = self.adapter.rag(q, k=self.k)
-        ans, ctxs = result["answer"], result["contexts"]
+        r = self.adapter.retrieve(q, k=self.k)
+        # Global rate limit across ALL workers before calling the LLM:
+        ray.get(self.limiter.acquire.remote())
+        g = self.adapter.generate(q, r["contexts"])  # calls llm() (already wrapped with retry)
+        ans, ctxs = g["answer"], r["contexts"]
 
         # Layer 1: deterministic metrics (require ground truth)
         a_metrics = {}
@@ -37,10 +67,13 @@ class Evaluator:
             "contexts": ctxs,
             "A": a_metrics,
             "B": b_metrics,
-            "latency_ms": result.get("latency_ms"),
+            #"latency_ms": result.get("latency_ms"),
+            "latency_ms": {"retrieve": r.get("latency_ms"), "generate": g.get("latency_ms")},
+            "doc_id": example.get("doc_id"),
+            "gold_answer": example.get("gold_answer")
         }
 
-
+# ---------------- IO helpers ----------------
 def load_jsonl(path):
     data = []
     with open(path, "r", encoding="utf-8") as f:
@@ -96,10 +129,10 @@ def to_dataframes(results: list, run_id: str):
 def write_duckdb(db_path: str, examples_df: pd.DataFrame, contexts_df: pd.DataFrame):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     con = duckdb.connect(db_path)
-    con.execute("CREATE TABLE IF NOT EXISTS examples AS SELECT * FROM examples_df LIMIT 0")
-    con.execute("CREATE TABLE IF NOT EXISTS contexts AS SELECT * FROM contexts_df LIMIT 0")
     con.register("examples_df", examples_df)
     con.register("contexts_df", contexts_df)
+    con.execute("CREATE TABLE IF NOT EXISTS examples AS SELECT * FROM examples_df LIMIT 0")
+    con.execute("CREATE TABLE IF NOT EXISTS contexts AS SELECT * FROM contexts_df LIMIT 0")
     con.execute("INSERT INTO examples SELECT * FROM examples_df")
     con.execute("INSERT INTO contexts SELECT * FROM contexts_df")
     con.close()
@@ -115,12 +148,16 @@ def summarize_for_mlflow(examples_df: pd.DataFrame):
     faithful_vals = [1.0 if bool(x) else 0.0 for x in examples_df["faithful"].tolist() if x is not None]
     faithful_rate = float(mean(faithful_vals)) if faithful_vals else 0.0
 
-    def _nums(col):
-        return [float(x) for x in col.tolist() if isinstance(x, (int, float))]
+    # Latencies
+    lat_r_series = pd.to_numeric(examples_df.get("latency_ms_retrieve", pd.Series(dtype=float)), errors="coerce")
+    lat_g_series = pd.to_numeric(examples_df.get("latency_ms_generate", pd.Series(dtype=float)), errors="coerce")
 
-    lat_r = _nums(examples_df.get("latency_ms_retrieve", pd.Series([])))
-    lat_g = _nums(examples_df.get("latency_ms_generate", pd.Series([])))
-    lat_t = (lat_r or 0) + (lat_g or 0)
+    lat_r = lat_r_series.dropna().tolist()
+    lat_g = lat_g_series.dropna().tolist()
+
+    # total per-row, then average
+    total_series = (lat_r_series + lat_g_series).dropna()
+    lat_t = total_series.tolist()
 
     return {
         "hit_rate": hit_rate,
@@ -145,15 +182,22 @@ def main():
     args = parser.parse_args()
 
     num_workers = args.workers or args.cpus
+
+    # --- start Ray
     ray.init(num_cpus=args.cpus, ignore_reinit_error=True)
 
-    # launch mlflow ui with: mlflow ui --backend-store-uri raglab/runs/mlruns
-    mlflow.set_tracking_uri("file:raglab/runs/mlruns")
+    # set rate limits
+    max_calls = 25
+    limiter = RateLimiter.remote(max_calls=max_calls, per_seconds=60.0)
+
+    # --- MLflow setup
+    mlflow.set_tracking_uri("file:raglab/runs/mlruns") #-backend-store-uri
     mlflow.set_experiment(args.experiment)
 
     with mlflow.start_run(run_name=f"{args.llm_model}-k{args.k}") as run: #-w{num_workers}
         run_id = run.info.run_id
 
+        # Params
         mlflow.log_params({
             "llm_model": args.llm_model,
             "k": args.k,
@@ -162,31 +206,41 @@ def main():
             "dataset_path": args.data
         })
 
+        # Data
         dataset = load_jsonl(args.data)
         if not dataset:
             print("No data found. Check --data path.")
             ray.shutdown()
             return
 
-        workers = [Evaluator.remote(llm_model=args.llm_model, k=args.k) for _ in range(num_workers)]
-        futures = [workers[i % num_workers].run_eval.remote(example) for i, example in enumerate(dataset)]
+        # workers
+        workers = [Evaluator.remote(llm_model=args.llm_model, k=args.k, limiter=limiter) for _ in range(num_workers)]
 
-        print(f"\nRunning {len(futures)} examples with {num_workers} worker(s) on {args.cpus} CPU(s)...")
+        # Warm-up one task in case first call is slow / times out
+        # good for heavy clients like Qdrant & LLMs
+        first_result = ray.get(workers[0].run_eval.remote(dataset[0]))
+
+        # Dispatch remaining tasks
         t0 = time.perf_counter()
-        results = ray.get(futures)
+        futures = [workers[i % num_workers].run_eval.remote(ex) for i, ex in enumerate(dataset[1:])]
+        rest_results = ray.get(futures)
         elapsed = time.perf_counter() - t0
 
+        results = [first_result] + rest_results
         print(f"\n✅ Completed {len(results)} tasks in {elapsed:.2f}s "
               f"using {num_workers} worker(s) on {args.cpus} CPU(s)")
 
+        # Flatten → DuckDB
         examples_df, contexts_df = to_dataframes(results, run_id)
         db_path = os.path.join(args.duckdb_dir, f"{run_id}.duckdb")
         write_duckdb(db_path, examples_df, contexts_df)
 
+        # Summary metrics → MLflow
         summary = summarize_for_mlflow(examples_df)
         mlflow.log_metrics(summary)
         mlflow.log_metric("wall_time_s", elapsed)
 
+        # Attach the DuckDB file as an artifact
         mlflow.log_param("duckdb_path", db_path)
         mlflow.log_artifact(db_path)
 
